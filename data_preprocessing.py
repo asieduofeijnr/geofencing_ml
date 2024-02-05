@@ -131,6 +131,6 @@ def get_location(lon, lat):
     dict: A dictionary containing the address components of the location.
     """
     geolocator = Nominatim(user_agent='geoapiExcises')
-    location = geolocator.reverse(lat + "," + lon)
+    location = geolocator.reverse(f'{lat},{lon}')
     address = location.raw['address']
     return address
