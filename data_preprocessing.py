@@ -33,30 +33,30 @@ def get_stop_groups(data_frame):
     then calculates the percentage of total stop time for each stop.
 
     Parameters:
-    - data_frame (DataFrame): A pandas DataFrame containing the columns 'lon', 'lat', and 'timestamp'.
+    - data_frame (DataFrame): A pandas DataFrame containing the columns 'lon', 'latitude', and 'ts'.
 
     Returns:
     - DataFrame: A pandas DataFrame with stop groups, their duration, coordinates, percentage of total stop time,
-        and the corresponding timestamp of when the stop started.
+        and the corresponding ts of when the stop started.
     """
 
     # Threshold for considering the car stopped, in kilometers (e.g., 0.05 km)
     stop_threshold = 0.05
-    # Initialize lists for latitude, longitude, percentage, and timestamp
+    # Initialize lists for latitude, longitude, percentage, and ts
     percent = []
-    timestamp = []
+    ts = []
     latvalues = []
     longvalues = []
 
     # Calculate previous longitude and latitude
-    data_frame['prev_lon'] = data_frame['lon'].shift()
-    data_frame['prev_lat'] = data_frame['lat'].shift()
+    data_frame['prev_lon'] = data_frame['longitude'].shift()
+    data_frame['prev_lat'] = data_frame['latitude'].shift()
 
     # Calculate the distance using the Haversine formula
     data_frame['distance'] = data_frame.apply(lambda row:
-                                              haversine(
-                                                  row['lon'], row['lat'], row['prev_lon'], row['prev_lat'])
-                                              if pd.notnull(row['prev_lon']) and pd.notnull(row['prev_lat']) else 0, axis=1)
+                                            haversine(
+                                                row['longitude'], row['latitude'], row['prev_lon'], row['prev_lat'])
+                                            if pd.notnull(row['prev_lon']) and pd.notnull(row['prev_lat']) else 0, axis=1)
 
     # Identify rows where the car is stopped
     data_frame['stopped'] = data_frame['distance'] <= stop_threshold
@@ -65,7 +65,7 @@ def get_stop_groups(data_frame):
     data_frame['stopped_group'] = (
         data_frame['stopped'] != data_frame['stopped'].shift()).cumsum()
     data_frame_stopped_group = data_frame[data_frame['stopped']].groupby('stopped_group')\
-        .agg(start_time=('timestamp', 'min'), end_time=('timestamp', 'max'))
+        .agg(start_time=('ts', 'min'), end_time=('ts', 'max'))
 
     # Convert timestamps to datetime objects
     stopped_groups_df = pd.DataFrame(data_frame_stopped_group)
@@ -102,16 +102,17 @@ def get_stop_groups(data_frame):
 
     # Populate lists with data
     for i in range(len(df_reset)):
-        timestamp.append(df_reset[1][i]['timestamp'])
-        latvalues.append(df_reset[1][i]['lat'])
-        longvalues.append(df_reset[1][i]['lon'])
+        ts.append(df_reset[1][i]['ts'])
+        latvalues.append(df_reset[1][i]['latitude'])
+        longvalues.append(df_reset[1][i]['longitude'])
         percent.append(df_reset[0][i]/total_stopped)
 
     # Update DataFrame with new columns
-    df_reset['lat'] = latvalues
-    df_reset['long'] = longvalues
+    df_reset['latitude'] = latvalues
+    df_reset['longitude'] = longvalues
     df_reset['percent'] = percent
-    df_reset['timestamp'] = timestamp
+    df_reset['ts'] = ts
+    df_reset['id'] = data_frame['device_id']
 
     # Drop the now unnecessary column
     df_with_stops = df_reset.drop(df_reset.columns[2], axis=1)
@@ -119,13 +120,13 @@ def get_stop_groups(data_frame):
     return df_with_stops
 
 
-def get_location(lon, lat):
+def get_location(lon,lat):
     """
     Retrieves the address corresponding to the given longitude and latitude.
 
     Parameters:
     - lon (str): The longitude of the location as a string.
-    - lat (str): The latitude of the location as a string.
+    -'latitude (str): The latitude of the location as a string.
 
     Returns:
     dict: A dictionary containing the address components of the location.
