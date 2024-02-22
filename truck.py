@@ -45,11 +45,14 @@ class FLEET():
                                                         )
         return self
 
-    def get_centriod(self, df):
-        pass
-
     def stop_duration(self, df, centroid):
         pass
 
     def stop_freq(sefl, df, centroid):
+        pass
+
+    def get_centriod(self, df):
+        pass
+
+    def create_clusters(self):
         pass
