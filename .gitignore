@@ -4,3 +4,4 @@ test_*
 Icon?
 data
 new.ipynb
+.DS_Store
