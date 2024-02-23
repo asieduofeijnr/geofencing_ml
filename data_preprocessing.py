@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import time
 from geopy.geocoders import Nominatim
 
 
@@ -54,9 +55,9 @@ def get_stop_groups(data_frame):
 
     # Calculate the distance using the Haversine formula
     data_frame['distance'] = data_frame.apply(lambda row:
-                                            haversine(
-                                                row['longitude'], row['latitude'], row['prev_lon'], row['prev_lat'])
-                                            if pd.notnull(row['prev_lon']) and pd.notnull(row['prev_lat']) else 0, axis=1)
+                                              haversine(
+                                                  row['longitude'], row['latitude'], row['prev_lon'], row['prev_lat'])
+                                              if pd.notnull(row['prev_lon']) and pd.notnull(row['prev_lat']) else 0, axis=1)
 
     # Identify rows where the car is stopped
     data_frame['stopped'] = data_frame['distance'] <= stop_threshold
@@ -120,7 +121,7 @@ def get_stop_groups(data_frame):
     return df_with_stops
 
 
-def get_location(lon,lat):
+def get_location(lon, lat):
     """
     Retrieves the address corresponding to the given longitude and latitude.
 
@@ -131,6 +132,7 @@ def get_location(lon,lat):
     Returns:
     dict: A dictionary containing the address components of the location.
     """
+    time.sleep(1)  # to reduce the request made each time
     geolocator = Nominatim(user_agent='geoapiExcises')
     location = geolocator.reverse(f'{lat},{lon}')
     address = location.raw['address']
