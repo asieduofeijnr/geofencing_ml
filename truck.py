@@ -7,9 +7,11 @@ class FLEET():
     def __init__(self, truck_id, df):
         self.fleetstops_dataframe = pd.DataFrame()
         self.truck_id = truck_id
-        self.cluster = None
+        self.clusters = pd.DataFrame()
         self.df = df
         self.fleet_dataframe = pd.DataFrame()
+        self.proximity_df = pd.DataFrame()
+        self.geofence_df = pd.DataFrame()
 
     def get_data_frame(self):
         self.fleet_dataframe = self.df[
@@ -43,6 +45,34 @@ class FLEET():
                                                         str(row['latitude'])),
                                                         axis=1
                                                         )
+        return self
+
+
+    def getClustersFrequency(self, stop_threshold=0.2, time_threshold=None):
+        if self.fleetstops_dataframe.empty:
+            self.get_stops(time_threshold=time_threshold)
+        clusters_df = data_preprocessing.get_clusters_and_frequency(
+            self.fleetstops_dataframe, stop_threshold)
+        self.clusters = clusters_df
+        return self
+    
+    def get_proximity_df(self):
+        if self.clusters.empty:
+            self.getClustersFrequency()
+        self.proximity_df = data_preprocessing.estimate_proximity_and_closest_cluster(self.clusters)
+        return self
+    
+    def get_geofence_df(self, waiting_time_threshold=None,
+                        frequency_threshold=None,
+                        proximity_threshold=None):
+        if self.proximity_df.empty:
+            self.get_proximity_df()
+        self.geofence_df = \
+            data_preprocessing.create_geofence_target_label(
+                self.proximity_df, 
+                waiting_time_threshold = waiting_time_threshold,
+                frequency_threshold= frequency_threshold,
+                proximity_threshold=proximity_threshold)
         return self
 
     def stop_duration(self, df, centroid):
