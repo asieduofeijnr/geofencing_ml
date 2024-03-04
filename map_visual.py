@@ -79,9 +79,12 @@ if selected_truck_ids:
     # Call to render Folium map in Streamlit
     st_data = st_folium(m, height=500, width=1200)
 
-st.subheader(
-    "Clusters of Trucks and Stops"
-)
+st.subheader("Visualize Clusters of Stops for Selected Truck(s)")
+
+# Detailed instructions on separate lines
+st.write("1. Use this section to select one or more trucks and define parameters to visualize how frequently trucks stop at various locations.")
+st.write("2. Clusters are determined based on your specified 'Stop Threshold' and 'Hours' parameters, representing the minimum number of stops within a certain time frame to form a cluster.")
+st.write("3. Adjust these parameters and select trucks to see their stop clusters on the map.")
 
 options_clusters = st.multiselect(
     ' ',
