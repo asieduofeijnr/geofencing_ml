@@ -18,3 +18,4 @@ To use these scripts, clone this repository and ensure you have Python 3.6 or hi
 ```sh
 streamlit run map_visual.py
 ```
+This project is ongoing and will be updated as and when
