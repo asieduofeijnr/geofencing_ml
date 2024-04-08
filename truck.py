@@ -47,7 +47,7 @@ class FLEET():
         )
         return self
 
-    def getClustersFrequency(self, stop_threshold=0.000001, time_threshold=None):
+    def getClustersFrequency(self, stop_threshold=0.5, time_threshold=None):
         if self.fleetstops_dataframe.empty:
             self.get_stops(time_threshold=time_threshold)
         clusters_df = data_preprocessing.get_clusters_and_frequency(
