@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import time
 from geopy.geocoders import Nominatim
+from scipy.stats import entropy
 from collections import Counter
 geolocator = Nominatim(user_agent='geoapiExcises')
 
@@ -261,92 +262,6 @@ def get_clusters_and_frequency(dataframe, stop_threshold=0.5):
     return df
 
 
-def get_clusters_and_frequency_2(dataframe, stop_threshold=0.5):
-    """
-    Identify clusters of stops and calculate their frequency and total waiting time.
-
-    Parameters:
-    - dataframe (DataFrame): DataFrame containing stop data
-    - stop_threshold (float): Distance threshold to consider stops as part of the same cluster
-
-    Returns:
-    - DataFrame: DataFrame containing clusters of stops, their frequencies, and total waiting time
-    """
-    # Use a dictionary to store unique cluster centroids and their corresponding waiting times
-    cluster_details = {}
-    # List to store mean coordinates of each cluster centroid
-    cluster_centroid_cords = []
-    visited = []
-    # Iterate over each row in the DataFrame
-    for index, row_0 in dataframe.iterrows():
-        if index not in visited:
-            visited.append(index)
-
-        distances = []
-        # Calculate distances to other cluster centroids in the DataFrame
-        for row in range(len(dataframe)):
-            distance = haversine(
-                row_0['longitude'],
-                row_0['latitude'],
-                dataframe.iloc[row]['longitude'],
-                dataframe.iloc[row]['latitude'])
-            # Check if the distance is below the threshold
-            if distance < stop_threshold:
-                lat = dataframe.iloc[row]['latitude']
-                lon = dataframe.iloc[row]['longitude']
-                time_stopped = dataframe.iloc[row]['waiting_time']
-                truck_id = dataframe.iloc[row]['id']
-                timestamp = dataframe.iloc[row]['timestamp']
-                row_tuple = (lat, lon)
-                # Add the row to the dictionary if it's unique
-                if row_tuple not in cluster_details:
-                    cluster_details[row_tuple] = {
-                        'waiting_time': time_stopped,
-                        'coords': [(row_0['latitude'], row_0['longitude'], truck_id)],
-                        'timestamp': timestamp}
-                    distances.append((lat, lon))
-                else:
-                    # Update the waiting time for existing cluster centroid
-                    cluster_details[row_tuple]['waiting_time'] += time_stopped
-                    cluster_details[row_tuple]['coords'].append(
-                        (lat, lon, truck_id))
-
-        # Calculate the mean latitude and longitude for the cluster centroid
-        if distances:
-            mean_lat = np.mean([lat for lat, lon in distances])
-            mean_lon = np.mean([lon for lat, lon in distances])
-            # Extend the list with the mean coordinates for each existing coordinate in the group
-            cluster_centroid_cords.extend(
-                [(mean_lat, mean_lon)] * len(distances))
-
-    # Create a DataFrame from the unique cluster centroid details
-    df = pd.DataFrame(cluster_details.values())
-
-    # Add mean latitude and longitude columns to the DataFrame
-    df['mean_latitude'] = [lat for lat, _ in cluster_centroid_cords[:len(df)]]
-    df['mean_longitude'] = [lon for _, lon in cluster_centroid_cords[:len(df)]]
-
-    # Create a tuple of mean latitude and longitude as a cluster centroid identifier
-    df['cluster_centroid'] = list(
-        zip(round(df['mean_latitude'], 6), round(df['mean_longitude'], 6)))
-
-    # Assign cluster labels to each cluster centroid
-    cluster_labels = {tuple(row): f'Cluster {i + 1}' for i, row in enumerate(
-        df[['mean_latitude', 'mean_longitude']].drop_duplicates().itertuples(index=False))}
-    df['clusters'] = df[['mean_latitude', 'mean_longitude']].apply(
-        tuple, axis=1).map(cluster_labels)
-
-    # Calculate the frequency of each cluster
-    df['Frequency_of_stops'] = df.groupby('cluster_centroid')[
-        'cluster_centroid'].transform('count')
-
-    # Drop duplicate cluster_centroids
-    df = df.drop_duplicates(subset='cluster_centroid')
-    df = df.drop(columns=['mean_latitude', 'mean_longitude'])
-
-    return df
-
-
 def estimate_proximity_and_closest_cluster(dataframe):
     """
     Calculate proximity distances between clusters and determine \
@@ -438,3 +353,38 @@ def create_geofence_target_label(dataframe,
     dataframe['is_geofence'] = dataframe.apply(assign_label, axis=1)
 
     return dataframe
+
+
+def recommendation_algo(df, homogenous, num_stops, percentage_of_trucks, avg_wait_time, unique_ids):
+    def filter_threshold(df):
+        filtered_df = df[
+            (df['Frequency_of_stops'] >= num_stops) &
+            (df['homogeneous'] >= homogenous) &
+            (df['num_ids'] >= percentage_of_trucks) &
+            (df['avg_wait_time_hours'] >= avg_wait_time)
+        ]
+        return filtered_df
+
+    def calculate_homogeneous_score(value_dict):
+        # Convert the dictionary values to proportions
+        proportions = np.array(list(value_dict.values()), dtype=np.float64)
+        total = proportions.sum()
+        if total > 0:
+            proportions /= total
+            # Using base 2 for entropy calculation
+            entropy_value = entropy(proportions, base=2)
+            if entropy_value > 0:
+                return 1 / entropy_value
+        # Return a default score for edge cases
+        return 0
+
+    def count_ids(value_dict):
+        return len(value_dict)/unique_ids
+    # Example usage with a DataFrame column
+    df['homogeneous'] = df['num_trucks_stops'].apply(
+        calculate_homogeneous_score)
+    df['num_ids'] = df['num_trucks_stops'].apply(count_ids)
+    df['avg_wait_time_hours'] = df['avg_wait_time'].dt.total_seconds() / 3600
+    recommended_stops = filter_threshold(df)
+
+    return recommended_stops

@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from data_preprocessing import recommendation_algo
 import os
 import folium
 from streamlit_folium import st_folium
@@ -21,8 +22,8 @@ def load_data():
 def load_data_cluster():
     if 'df_fleet_cluster' not in st.session_state:
         dfs_cluster = os.path.expanduser(
-            "~/data/geofence_data/test_sample_truck_cluster.csv")
-        st.session_state.df_fleet_cluster = pd.read_csv(dfs_cluster)
+            "~/data/geofence_data/test_sample_truck_cluster.pickle")
+        st.session_state.df_fleet_cluster = pd.read_pickle(dfs_cluster)
 
 ######################################
 
@@ -74,9 +75,8 @@ load_data_cluster()
 # Extracting unique device IDs and mapping them to truck IDs
 device_ids = st.session_state.df_fleet.device_id.unique()
 truck_ids = {f"Truck_{count + 1}": id for count,
-             id in enumerate(device_ids[0:2])}
+             id in enumerate(device_ids)}
 
-# Enhancing the multi-select widget for a better user experience
 options = st.multiselect(
     label="Select Truck(s) to Visualize:",
     options=truck_ids.keys(),
@@ -127,6 +127,17 @@ if selected_truck_ids:
     st_data = st_folium(m, height=500, width=1200)
 
 
+# Improving the instructions and overview for better readability and aesthetics
+st.markdown("""
+    <div style="background-color: #f0f2f6; padding: 10px; border-radius: 10px;">
+        <h4>Visualize Truck Clusters:</h4>
+        <ol>
+            <li>Select Truck(s) stop threshold (the minimum distance from another truck).</li>
+            <li>Select Truck(s) hours stopped (the minimum hours a truck has stopped for)</li>
+        </ol>
+    </div>
+""", unsafe_allow_html=True)
+
 col1, col2 = st.columns(2)
 
 with col1:
@@ -146,8 +157,8 @@ if selected_truck_ids:
     df = st.session_state.df_fleet_cluster
 
     # Initialize the map with the truck's first location
-    start_latitude = df.iloc[0]['cluster_centroid'][0]
-    start_longitude = df.iloc[0]['cluster_centroid'][1]
+    start_latitude = float(df.iloc[0]['cluster_centroid'][0])
+    start_longitude = float(df.iloc[0]['cluster_centroid'][1])
     m = folium.Map(
         location=[start_latitude, start_longitude], zoom_start=5)
 
@@ -156,8 +167,9 @@ if selected_truck_ids:
         folium.CircleMarker(
             location=[row['cluster_centroid']
                       [0], row['cluster_centroid'][1]],
-            radius=row['Frequency_of_stops'],
+            radius=(row['Frequency_of_stops']/10),
             color="red",
+            tooltip=row['clusters'],
             fill=True,
             fill_color='red',
             fill_opacity=0.6
@@ -169,3 +181,67 @@ if selected_truck_ids:
 
     # Call to render Folium map in Streamlit
     st_data = st_folium(m, height=500, width=1200)
+
+######################################
+
+st.markdown("""
+    <div style="background-color: #f0f2f6; padding: 10px; border-radius: 10px;">
+        <h4>Visualize Interesting Truck Clusters based of parameters:</h4>
+        <ol>
+            <li>Select Truck(s) homogenous state (the minimum distance from another truck).</li>
+            <li>Select Truck(s) hours stopped (the minimum hours a truck has stopped for)</li>
+        </ol>
+    </div>
+""", unsafe_allow_html=True)
+
+
+homogenous = st.slider("Homogenous", min_value=min(
+    df.homogeneous), max_value=max(df.homogeneous), key='homogenous')
+
+num_stops = st.number_input(
+    f'Insert a number for truck stops in Cluster, MAX_stops = {max(df.Frequency_of_stops)}', min_value=1, value=50, key='num_stops')
+
+percentage_of_trucks = st.slider(
+    "Percentage of trucks in cluster", min_value=0.0, max_value=0.9, key='percentage_of_trucks')
+
+avg_wait_time = st.number_input(
+    f'Insert a number for Average wait time in hours, MAX_hours = {max(df.avg_wait_time_hours)} ', min_value=1, value=1, key='avg_wait_time')
+
+unique_ids = st.number_input(
+    'Insert a number for unique_ids', min_value=1, value=31, key="unique_ids")
+
+
+st.session_state.final_df = recommendation_algo(
+    df, homogenous, num_stops, percentage_of_trucks, avg_wait_time, unique_ids)
+
+start_latitude = float(
+    st.session_state.final_df.iloc[0]['cluster_centroid'][0])
+start_longitude = float(
+    st.session_state.final_df.iloc[0]['cluster_centroid'][1])
+m_cluster = folium.Map(
+    location=[start_latitude, start_longitude], zoom_start=5)
+
+# Adding points for the truck's route
+for _, row in st.session_state.final_df.iterrows():
+    folium.CircleMarker(
+        location=[row['cluster_centroid']
+                  [0], row['cluster_centroid'][1]],
+        radius=10,
+        color="blue",
+        popup=f'''Cluster: {row['clusters']} <br> 
+                  No Trucks: {len(row['num_trucks_stops'])} <br>
+                  Total wait time : {row['total_wait_time']} <br>
+                  Average wait time : {row['avg_wait_time']} <br>
+                  Frequency of Stops: {row['Frequency_of_stops']} <br>
+                  Truck Stops: {row['num_trucks_stops']}''',
+        fill=True,
+        fill_color='blue',
+        fill_opacity=0.6
+    ).add_to(m_cluster)
+
+# Optionally, add lines to connect the points and show the route
+# if df.shape[0] > 1:  # Check if there are at least two points to connect
+#     folium.PolyLine(df['cluster_centroid'].tolist(), color=truck_color).add_to(m)
+
+# Call to render Folium map in Streamlit
+st_data_cluster = st_folium(m_cluster, height=500, width=1200, key="m_cluster")
