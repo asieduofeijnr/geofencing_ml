@@ -7,6 +7,7 @@ from streamlit_folium import st_folium
 import pandas as pd
 from truck import *
 import folium
+from shapely.geometry import Polygon
 from itertools import cycle
 
 ######################################
@@ -22,7 +23,7 @@ def load_data():
 def load_data_cluster():
     if 'df_fleet_cluster' not in st.session_state:
         dfs_cluster = os.path.expanduser(
-            "~/data/geofence_data/test_sample_truck_cluster.pickle")
+            "~/data/geofence_data/fleet_dataframe.pickle")
         st.session_state.df_fleet_cluster = pd.read_pickle(dfs_cluster)
 
 ######################################
@@ -184,6 +185,10 @@ if selected_truck_ids:
 
 ######################################
 
+# row1, row2, row3 = st.columns([1, 4, 1])
+
+# with row2:
+
 st.markdown("""
     <div style="background-color: #f0f2f6; padding: 10px; border-radius: 10px;">
         <h4>Visualize Interesting Truck Clusters based of parameters:</h4>
@@ -195,8 +200,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-homogenous = st.slider("Homogenous", min_value=min(
-    df.homogeneous), max_value=max(df.homogeneous), key='homogenous')
+# homogenous = st.slider("Homogenous", min_value=min(
+#     df.homogeneous), max_value=max(df.homogeneous), key='homogenous')
+
+homogenous = st.slider("Homogenous", min_value=0.0,
+                       max_value=0.9, key='homogenous')
 
 num_stops = st.number_input(
     f'Insert a number for truck stops in Cluster, MAX_stops = {max(df.Frequency_of_stops)}', min_value=1, value=50, key='num_stops')
@@ -204,8 +212,12 @@ num_stops = st.number_input(
 percentage_of_trucks = st.slider(
     "Percentage of trucks in cluster", min_value=0.0, max_value=0.9, key='percentage_of_trucks')
 
+# avg_wait_time = st.number_input(
+#     f'Insert a number for Average wait time in hours, MAX_hours = {max(df.avg_wait_time_hours)} ', min_value=1, value=1, key='avg_wait_time')
+
 avg_wait_time = st.number_input(
-    f'Insert a number for Average wait time in hours, MAX_hours = {max(df.avg_wait_time_hours)} ', min_value=1, value=1, key='avg_wait_time')
+    f'Insert a number for Average wait time in hours, MAX_hours = 100 ', min_value=1, value=1, key='avg_wait_time')
+
 
 unique_ids = st.number_input(
     'Insert a number for unique_ids', min_value=1, value=31, key="unique_ids")
@@ -227,7 +239,7 @@ for _, row in st.session_state.final_df.iterrows():
         location=[row['cluster_centroid']
                   [0], row['cluster_centroid'][1]],
         radius=10,
-        color="blue",
+        color="purple",
         popup=f'''Cluster: {row['clusters']} <br> 
                   No Trucks: {len(row['num_trucks_stops'])} <br>
                   Total wait time : {row['total_wait_time']} <br>
@@ -235,9 +247,35 @@ for _, row in st.session_state.final_df.iterrows():
                   Frequency of Stops: {row['Frequency_of_stops']} <br>
                   Truck Stops: {row['num_trucks_stops']}''',
         fill=True,
-        fill_color='blue',
+        fill_color='purple',
         fill_opacity=0.6
     ).add_to(m_cluster)
+
+for i in st.session_state.final_df.Points:
+    # Find the minimum and maximum latitude and longitude values
+    min_lat = min(coord[0] for coord in i)
+    max_lat = max(coord[0] for coord in i)
+    min_lon = min(coord[1] for coord in i)
+    max_lon = max(coord[1] for coord in i)
+
+    boundary_coordinates = [
+        (min_lat, min_lon),
+        (min_lat, max_lon),
+        (max_lat, max_lon),
+        (max_lat, min_lon),
+        (min_lat, min_lon)
+    ]
+    # Create a polygon to highlight the cluster
+    area = Polygon(boundary_coordinates).area * 10**6
+
+    folium.Polygon(locations=boundary_coordinates, color='red', fill=True,
+                   fill_color='red', fill_opacity=0.5, weight=0.2,
+                   popup=folium.Popup(f'Area: {area:2f} sq.km', parse_html=True)).add_to(m_cluster)
+
+    for coord in i:
+        folium.CircleMarker(location=coord, radius=2, color='blue',
+                            fill=True, fill_color='blue').add_to(m_cluster)
+
 
 # Optionally, add lines to connect the points and show the route
 # if df.shape[0] > 1:  # Check if there are at least two points to connect

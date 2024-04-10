@@ -380,11 +380,19 @@ def recommendation_algo(df, homogenous, num_stops, percentage_of_trucks, avg_wai
 
     def count_ids(value_dict):
         return len(value_dict)/unique_ids
+
+    def get_polygon_coords(data):
+        polygon_coords = []
+        for i in data:
+            polygon_coords.append((i[0], i[1]))
+        return polygon_coords
+
     # Example usage with a DataFrame column
     df['homogeneous'] = df['num_trucks_stops'].apply(
         calculate_homogeneous_score)
     df['num_ids'] = df['num_trucks_stops'].apply(count_ids)
     df['avg_wait_time_hours'] = df['avg_wait_time'].dt.total_seconds() / 3600
+    df['Points'] = df['coordinates'].apply(get_polygon_coords)
     recommended_stops = filter_threshold(df)
 
     return recommended_stops
