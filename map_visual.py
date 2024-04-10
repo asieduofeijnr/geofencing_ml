@@ -233,23 +233,6 @@ start_longitude = float(
 m_cluster = folium.Map(
     location=[start_latitude, start_longitude], zoom_start=5)
 
-# Adding points for the truck's route
-for _, row in st.session_state.final_df.iterrows():
-    folium.CircleMarker(
-        location=[row['cluster_centroid']
-                  [0], row['cluster_centroid'][1]],
-        radius=10,
-        color="purple",
-        popup=f'''Cluster: {row['clusters']} <br> 
-                  No Trucks: {len(row['num_trucks_stops'])} <br>
-                  Total wait time : {row['total_wait_time']} <br>
-                  Average wait time : {row['avg_wait_time']} <br>
-                  Frequency of Stops: {row['Frequency_of_stops']} <br>
-                  Truck Stops: {row['num_trucks_stops']}''',
-        fill=True,
-        fill_color='purple',
-        fill_opacity=0.6
-    ).add_to(m_cluster)
 
 for i in st.session_state.final_df.Points:
     # Find the minimum and maximum latitude and longitude values
@@ -276,7 +259,23 @@ for i in st.session_state.final_df.Points:
         folium.CircleMarker(location=coord, radius=2, color='blue',
                             fill=True, fill_color='blue').add_to(m_cluster)
 
-
+# Adding points for the truck's route
+for _, row in st.session_state.final_df.iterrows():
+    folium.CircleMarker(
+        location=[row['cluster_centroid']
+                  [0], row['cluster_centroid'][1]],
+        radius=10,
+        color="purple",
+        popup=f'''Cluster: {row['clusters']} <br> 
+                  No Trucks: {len(row['num_trucks_stops'])} <br>
+                  Total wait time : {row['total_wait_time']} <br>
+                  Average wait time : {row['avg_wait_time']} <br>
+                  Frequency of Stops: {row['Frequency_of_stops']} <br>
+                  Truck Stops: {row['num_trucks_stops']}''',
+        fill=True,
+        fill_color='purple',
+        fill_opacity=0.6
+    ).add_to(m_cluster)
 # Optionally, add lines to connect the points and show the route
 # if df.shape[0] > 1:  # Check if there are at least two points to connect
 #     folium.PolyLine(df['cluster_centroid'].tolist(), color=truck_color).add_to(m)
