@@ -374,7 +374,8 @@ def recommendation_algo(df, homogenous, num_stops, percentage_of_trucks, avg_wai
     
             entropy_value = entropy(proportions, base=2)  
             if entropy_value == 0:
-                return 1
+                if len(proportions) = 1:
+                    return 1
             elif entropy_value > 0:
                 score = 1 / entropy_value
                 return score
