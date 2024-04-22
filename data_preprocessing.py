@@ -365,18 +365,19 @@ def recommendation_algo(df, homogenous, num_stops, percentage_of_trucks, avg_wai
         ]
         return filtered_df
 
-    def calculate_homogeneous_score(value_dict):
-        # Convert the dictionary values to proportions
-        proportions = np.array(list(value_dict.values()), dtype=np.float64)
-        total = proportions.sum()
+    def calculate_homogeneous_score(value_dict, smoothing=1):
+        values = np.array(list(value_dict.values()), dtype=np.float64)
+        values += smoothing  # Applying Laplace smoothing
+        total = values.sum()
         if total > 0:
-            proportions /= total
-            # Using base 2 for entropy calculation
-            entropy_value = entropy(proportions, base=2)
+            proportions = values / total
+            if proportions == 1:
+                return 1
+            entropy_value = entropy(proportions, base=2)  
             if entropy_value > 0:
-                return 1 / entropy_value
-        # Return a default score for edge cases
-        return 0
+                score = 1 / entropy_value
+                return score
+        return 0 
 
     def count_ids(value_dict):
         return len(value_dict)/unique_ids
