@@ -355,14 +355,72 @@ def create_geofence_target_label(dataframe,
     return dataframe
 
 
-def recommendation_algo(df, homogenous, num_stops, percentage_of_trucks, avg_wait_time, unique_ids):
-    def filter_threshold(df):
+def recommendation_algo(df, homogenous, num_stops, percentage_of_trucks, avg_wait_time, unique_ids, use_case, size):
+    bounds = {
+        'ops': {
+            'lower_bounds': {
+                'Frequency_of_stops': 2,
+                'homogeneous': 0,
+                'num_ids': 0,
+                'avg_wait_time_hours': 3
+            },
+            'upper_bounds': {
+                'Frequency_of_stops': float('inf'),
+                'homogeneous': float('inf'),
+                'num_ids': 1,
+                'avg_wait_time_hours': 5
+            }
+        },
+        'tracking': {
+            'lower_bounds': {
+                'Frequency_of_stops': 20,
+                'homogeneous': 0.2,
+                'num_ids': 0.2,
+                'avg_wait_time_hours': 1
+            },
+            'upper_bounds': {
+                'Frequency_of_stops': float('inf'),
+                'homogeneous': float('inf'),
+                'num_ids': float('inf'),
+                'avg_wait_time_hours': float('inf')
+            }
+        },
+        'safety': {
+            'lower_bounds': {
+                'Frequency_of_stops': 1,
+                'homogeneous': 0,
+                'num_ids': 0,
+                'avg_wait_time_hours': 10
+            },
+            'upper_bounds': {
+                'Frequency_of_stops': float('inf'),
+                'homogeneous': float('inf'),
+                'num_ids': 0.1,
+                'avg_wait_time_hours': float('inf')
+            }
+        }
+    }
+    def filter_threshold(df, bounds, use_case, size):
+        # Retrieve the specific lower and upper bounds for the use case
+        lower_bounds = bounds[use_case]['lower_bounds']
+        upper_bounds = bounds[use_case]['upper_bounds']
+    
+        # Adjust bounds based on the size parameter
+        if size == 'small':
+            lower_bounds['num_ids'] = 0
+    
+        # Filter the dataframe based on the bounds
         filtered_df = df[
-            (df['Frequency_of_stops'] >= num_stops) &
-            (df['homogeneous'] >= homogenous) &
-            (df['num_ids'] >= percentage_of_trucks) &
-            (df['avg_wait_time_hours'] >= avg_wait_time)
+            (df['Frequency_of_stops'] >= lower_bounds['Frequency_of_stops']) &
+            (df['Frequency_of_stops'] <= upper_bounds['Frequency_of_stops']) &
+            (df['homogeneous'] >= lower_bounds['homogeneous']) &
+            (df['homogeneous'] <= upper_bounds['homogeneous']) &
+            (df['num_ids'] >= lower_bounds['num_ids']) &
+            (df['num_ids'] <= upper_bounds['num_ids']) &
+            (df['avg_wait_time_hours'] >= lower_bounds['avg_wait_time_hours']) &
+            (df['avg_wait_time_hours'] <= upper_bounds['avg_wait_time_hours'])
         ]
+        
         return filtered_df
     
     def calculate_homogeneous_score(value_dict, smoothing=1):
@@ -396,6 +454,15 @@ def recommendation_algo(df, homogenous, num_stops, percentage_of_trucks, avg_wai
     df['num_ids'] = df['num_trucks_stops'].apply(count_ids)
     df['avg_wait_time_hours'] = df['avg_wait_time'].dt.total_seconds() / 3600
     df['Points'] = df['coordinates'].apply(get_polygon_coords)
-    recommended_stops = filter_threshold(df)
+
+    
+    recommended_stops = filter_threshold(df,bounds,use_case,size)
 
     return recommended_stops
+
+
+
+
+
+
+
