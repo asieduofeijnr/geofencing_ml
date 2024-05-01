@@ -211,14 +211,14 @@ st.write('----')
 st.sidebar.title('Map Use Case Selector')
 # Setting 'reset' as the default value directly in the radio widget
 use_case = st.sidebar.radio(
-    "Select Use Case:", ['ops', 'tracking', 'safety', 'reset'], index=3)
+    "Select Use Case:", ['Optimization', 'Tracking', 'Safety', 'Reset'], index=3)
 
 # Mapping use cases to colors
 use_case_to_color = {
-    'ops': 'red',
-    'tracking': 'blue',
-    'safety': 'green',
-    'reset': 'purple'
+    'Optimization': 'red',
+    'Tracking': 'blue',
+    'Safety': 'green',
+    'Reset': 'purple'
 }
 
 case_color = use_case_to_color[use_case]

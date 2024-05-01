@@ -361,7 +361,7 @@ def create_geofence_target_label(dataframe,
 
 def recommendation_algo(df, unique_ids, use_case, size):
     bounds = {
-        'ops': {
+        'Optimization': {
             'lower_bounds': {
                 'Frequency_of_stops': 2,
                 'homogeneous': 0,
@@ -375,7 +375,7 @@ def recommendation_algo(df, unique_ids, use_case, size):
                 'avg_wait_time_hours': 5
             }
         },
-        'tracking': {
+        'Tracking': {
             'lower_bounds': {
                 'Frequency_of_stops': 20,
                 'homogeneous': 0.2,
@@ -389,7 +389,7 @@ def recommendation_algo(df, unique_ids, use_case, size):
                 'avg_wait_time_hours': float('inf')
             }
         },
-        'safety': {
+        'Safety': {
             'lower_bounds': {
                 'Frequency_of_stops': 1,
                 'homogeneous': 0,
@@ -403,7 +403,7 @@ def recommendation_algo(df, unique_ids, use_case, size):
                 'avg_wait_time_hours': float('inf')
             }
         },
-        'reset': {
+        'Reset': {
             'lower_bounds': {
                 'Frequency_of_stops': 0,
                 'homogeneous': 0,
