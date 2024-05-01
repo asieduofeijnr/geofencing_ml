@@ -1,9 +1,13 @@
 import pandas as pd
 import numpy as np
+import folium
 import time
+
 from geopy.geocoders import Nominatim
+from shapely.geometry import Polygon
 from scipy.stats import entropy
 from collections import Counter
+
 geolocator = Nominatim(user_agent='geoapiExcises')
 
 
@@ -355,7 +359,7 @@ def create_geofence_target_label(dataframe,
     return dataframe
 
 
-def recommendation_algo(df, homogenous, num_stops, percentage_of_trucks, avg_wait_time, unique_ids, use_case, size):
+def recommendation_algo(df, unique_ids, use_case, size):
     bounds = {
         'ops': {
             'lower_bounds': {
@@ -398,17 +402,32 @@ def recommendation_algo(df, homogenous, num_stops, percentage_of_trucks, avg_wai
                 'num_ids': 0.1,
                 'avg_wait_time_hours': float('inf')
             }
+        },
+        'reset': {
+            'lower_bounds': {
+                'Frequency_of_stops': 0,
+                'homogeneous': 0,
+                'num_ids': 0,
+                'avg_wait_time_hours': 0
+            },
+            'upper_bounds': {
+                'Frequency_of_stops': float('inf'),
+                'homogeneous': float('inf'),
+                'num_ids': 0,
+                'avg_wait_time_hours': float('inf')
+            }
         }
     }
+
     def filter_threshold(df, bounds, use_case, size):
         # Retrieve the specific lower and upper bounds for the use case
         lower_bounds = bounds[use_case]['lower_bounds']
         upper_bounds = bounds[use_case]['upper_bounds']
-    
+
         # Adjust bounds based on the size parameter
         if size == 'small':
             lower_bounds['num_ids'] = 0
-    
+
         # Filter the dataframe based on the bounds
         filtered_df = df[
             (df['Frequency_of_stops'] >= lower_bounds['Frequency_of_stops']) &
@@ -420,24 +439,24 @@ def recommendation_algo(df, homogenous, num_stops, percentage_of_trucks, avg_wai
             (df['avg_wait_time_hours'] >= lower_bounds['avg_wait_time_hours']) &
             (df['avg_wait_time_hours'] <= upper_bounds['avg_wait_time_hours'])
         ]
-        
+
         return filtered_df
-    
+
     def calculate_homogeneous_score(value_dict, smoothing=1):
         values = np.array(list(value_dict.values()), dtype=np.float64)
         values += smoothing  # Applying Laplace smoothing
         total = values.sum()
         if total > 0:
             proportions = values / total
-    
-            entropy_value = entropy(proportions, base=2)  
+
+            entropy_value = entropy(proportions, base=2)
             if entropy_value == 0:
-                if len(proportions) = 1:
+                if len(proportions) == 1:
                     return 1
             elif entropy_value > 0:
                 score = 1 / entropy_value
                 return score
-        return 0 
+        return 0
 
     def count_ids(value_dict):
         return len(value_dict)/unique_ids
@@ -455,14 +474,80 @@ def recommendation_algo(df, homogenous, num_stops, percentage_of_trucks, avg_wai
     df['avg_wait_time_hours'] = df['avg_wait_time'].dt.total_seconds() / 3600
     df['Points'] = df['coordinates'].apply(get_polygon_coords)
 
-    
-    recommended_stops = filter_threshold(df,bounds,use_case,size)
+    recommended_stops = filter_threshold(df, bounds, use_case, size)
 
     return recommended_stops
 
 
+def create_cluster_map(final_df, fill_colour):
+    # Initialize the map at the centroid of the first cluster
+    start_latitude = float(final_df.iloc[0]['cluster_centroid'][0])
+    start_longitude = float(final_df.iloc[0]['cluster_centroid'][1])
+    m_cluster = folium.Map(
+        location=[start_latitude, start_longitude], zoom_start=4)
 
+    # Loop through each cluster's points to create polygons
+    for points in final_df.Points:
+        # Calculate the boundary coordinates for the polygon
+        min_lat = min(coord[0] for coord in points)
+        max_lat = max(coord[0] for coord in points)
+        min_lon = min(coord[1] for coord in points)
+        max_lon = max(coord[1] for coord in points)
 
+        boundary_coordinates = [
+            (min_lat, min_lon),
+            (min_lat, max_lon),
+            (max_lat, max_lon),
+            (max_lat, min_lon),
+            (min_lat, min_lon)
+        ]
 
+        # Calculate the area and create a polygon on the map
+        area = Polygon(boundary_coordinates).area * 10**6
+        folium.Polygon(
+            locations=boundary_coordinates,
+            color='red',
+            fill=True,
+            fill_color=fill_colour,
+            fill_opacity=0.5,
+            weight=0.2,
+            popup=folium.Popup(f'Area: {area:.2f} sq.km', parse_html=True)
+        ).add_to(m_cluster)
 
+        # Add CircleMarkers for each point within the cluster
+        for coord in points:
+            folium.CircleMarker(
+                location=coord,
+                radius=2,
+                color='blue',
+                fill=True,
+                fill_color='blue'
+            ).add_to(m_cluster)
 
+    # Adding points for each cluster's centroid with additional data
+    for _, row in final_df.iterrows():
+        folium.CircleMarker(
+            location=[row['cluster_centroid'][0], row['cluster_centroid'][1]],
+            radius=10,
+            color="purple",
+            popup=f'''Cluster: {row['clusters']} <br>
+                      No Trucks: {len(row['num_trucks_stops'])} <br>
+                      Total wait time: {row['total_wait_time']} <br>
+                      Homogenous Score: {row['homogeneous']} <br>
+                      Average wait time: {row['avg_wait_time']} <br>
+                      Frequency of Stops: {row['Frequency_of_stops']} <br>
+                      Truck Stops: {row['num_trucks_stops']}''',
+            fill=True,
+            fill_color=fill_colour,
+            fill_opacity=0.6
+        ).add_to(m_cluster)
+
+    # Optionally, add lines to connect the points and show the route
+    # if final_df.shape[0] > 1:
+    #     folium.PolyLine(final_df['cluster_centroid'].tolist(), color='truck_color').add_to(m_cluster)
+
+    # Return the map object
+    return m_cluster
+
+# Example usage:
+# st_data_cluster = st_folium(create_cluster_map(final_df, 'red'), height=500, width=1200, key="m_cluster")

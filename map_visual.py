@@ -1,14 +1,16 @@
 import streamlit as st
 import pandas as pd
-from data_preprocessing import recommendation_algo
+import folium
 import os
-import folium
+
+
+from data_preprocessing import recommendation_algo
+from data_preprocessing import create_cluster_map
 from streamlit_folium import st_folium
-import pandas as pd
-from truck import *
-import folium
-from shapely.geometry import Polygon
+
 from itertools import cycle
+from truck import *
+
 
 ######################################
 # Function to load data, if not already in session state
@@ -203,82 +205,91 @@ st.markdown("""
 # homogenous = st.slider("Homogenous", min_value=min(
 #     df.homogeneous), max_value=max(df.homogeneous), key='homogenous')
 
-homogenous = st.slider("Homogenous", min_value=0.0,
-                       max_value=0.9, key='homogenous')
+st.write('----')
 
-num_stops = st.number_input(
-    f'Insert a number for truck stops in Cluster, MAX_stops = {max(df.Frequency_of_stops)}', min_value=1, value=50, key='num_stops')
+# Streamlit app layout
+st.sidebar.title('Map Use Case Selector')
+# Setting 'reset' as the default value directly in the radio widget
+use_case = st.sidebar.radio(
+    "Select Use Case:", ['ops', 'tracking', 'safety', 'reset'], index=3)
 
-percentage_of_trucks = st.slider(
-    "Percentage of trucks in cluster", min_value=0.0, max_value=0.9, key='percentage_of_trucks')
+# Mapping use cases to colors
+use_case_to_color = {
+    'ops': 'red',
+    'tracking': 'blue',
+    'safety': 'green',
+    'reset': 'purple'
+}
 
-# avg_wait_time = st.number_input(
-#     f'Insert a number for Average wait time in hours, MAX_hours = {max(df.avg_wait_time_hours)} ', min_value=1, value=1, key='avg_wait_time')
-
-avg_wait_time = st.number_input(
-    f'Insert a number for Average wait time in hours, MAX_hours = 100 ', min_value=1, value=1, key='avg_wait_time')
-
-
-unique_ids = st.number_input(
-    'Insert a number for unique_ids', min_value=1, value=31, key="unique_ids")
+case_color = use_case_to_color[use_case]
+unique_ids = 3
 
 
 st.session_state.final_df = recommendation_algo(
-    df, homogenous, num_stops, percentage_of_trucks, avg_wait_time, unique_ids)
+    df, unique_ids, size='small', use_case=use_case)
 
-start_latitude = float(
-    st.session_state.final_df.iloc[0]['cluster_centroid'][0])
-start_longitude = float(
-    st.session_state.final_df.iloc[0]['cluster_centroid'][1])
-m_cluster = folium.Map(
-    location=[start_latitude, start_longitude], zoom_start=5)
+map_object = create_cluster_map(st.session_state.final_df, case_color)
+st.components.v1.html(folium.Map._repr_html_(
+    map_object), height=500, width=1200)
+
+#####################################
+
+# start_latitude = float(
+#     st.session_state.final_df.iloc[0]['cluster_centroid'][0])
+# start_longitude = float(
+#     st.session_state.final_df.iloc[0]['cluster_centroid'][1])
+# m_cluster = folium.Map(
+#     location=[start_latitude, start_longitude], zoom_start=5)
 
 
-for i in st.session_state.final_df.Points:
-    # Find the minimum and maximum latitude and longitude values
-    min_lat = min(coord[0] for coord in i)
-    max_lat = max(coord[0] for coord in i)
-    min_lon = min(coord[1] for coord in i)
-    max_lon = max(coord[1] for coord in i)
+# for i in st.session_state.final_df.Points:
+#     # Find the minimum and maximum latitude and longitude values
+#     min_lat = min(coord[0] for coord in i)
+#     max_lat = max(coord[0] for coord in i)
+#     min_lon = min(coord[1] for coord in i)
+#     max_lon = max(coord[1] for coord in i)
 
-    boundary_coordinates = [
-        (min_lat, min_lon),
-        (min_lat, max_lon),
-        (max_lat, max_lon),
-        (max_lat, min_lon),
-        (min_lat, min_lon)
-    ]
-    # Create a polygon to highlight the cluster
-    area = Polygon(boundary_coordinates).area * 10**6
+#     boundary_coordinates = [
+#         (min_lat, min_lon),
+#         (min_lat, max_lon),
+#         (max_lat, max_lon),
+#         (max_lat, min_lon),
+#         (min_lat, min_lon)
+#     ]
+#     # Create a polygon to highlight the cluster
+#     area = Polygon(boundary_coordinates).area * 10**6
 
-    folium.Polygon(locations=boundary_coordinates, color='red', fill=True,
-                   fill_color='red', fill_opacity=0.5, weight=0.2,
-                   popup=folium.Popup(f'Area: {area:2f} sq.km', parse_html=True)).add_to(m_cluster)
+#     folium.Polygon(locations=boundary_coordinates, color='red', fill=True,
+#                    fill_color='red', fill_opacity=0.5, weight=0.2,
+#                    popup=folium.Popup(f'Area: {area:2f} sq.km', parse_html=True)).add_to(m_cluster)
 
-    for coord in i:
-        folium.CircleMarker(location=coord, radius=2, color='blue',
-                            fill=True, fill_color='blue').add_to(m_cluster)
+#     for coord in i:
+#         folium.CircleMarker(location=coord, radius=2, color='blue',
+#                             fill=True, fill_color='blue').add_to(m_cluster)
 
-# Adding points for the truck's route
-for _, row in st.session_state.final_df.iterrows():
-    folium.CircleMarker(
-        location=[row['cluster_centroid']
-                  [0], row['cluster_centroid'][1]],
-        radius=10,
-        color="purple",
-        popup=f'''Cluster: {row['clusters']} <br> 
-                  No Trucks: {len(row['num_trucks_stops'])} <br>
-                  Total wait time : {row['total_wait_time']} <br>
-                  Average wait time : {row['avg_wait_time']} <br>
-                  Frequency of Stops: {row['Frequency_of_stops']} <br>
-                  Truck Stops: {row['num_trucks_stops']}''',
-        fill=True,
-        fill_color='purple',
-        fill_opacity=0.6
-    ).add_to(m_cluster)
-# Optionally, add lines to connect the points and show the route
-# if df.shape[0] > 1:  # Check if there are at least two points to connect
-#     folium.PolyLine(df['cluster_centroid'].tolist(), color=truck_color).add_to(m)
+# # Adding points for the truck's route
+# for _, row in st.session_state.final_df.iterrows():
+#     folium.CircleMarker(
+#         location=[row['cluster_centroid']
+#                   [0], row['cluster_centroid'][1]],
+#         radius=10,
+#         color="purple",
+#         popup=f'''Cluster: {row['clusters']} <br>
+#                   No Trucks: {len(row['num_trucks_stops'])} <br>
+#                   Total wait time : {row['total_wait_time']} <br>
+#                   Homogenous Score : {row['homogeneous']} <br>
+#                   Average wait time : {row['avg_wait_time']} <br>
+#                   Frequency of Stops: {row['Frequency_of_stops']} <br>
+#                   Truck Stops: {row['num_trucks_stops']}''',
+#         fill=True,
+#         fill_color=case_color,
+#         fill_opacity=0.6
+#     ).add_to(m_cluster)
 
-# Call to render Folium map in Streamlit
-st_data_cluster = st_folium(m_cluster, height=500, width=1200, key="m_cluster")
+# # Optionally, add lines to connect the points and show the route
+# # if df.shape[0] > 1:  # Check if there are at least two points to connect
+# #     folium.PolyLine(df['cluster_centroid'].tolist(), color=truck_color).add_to(m)
+
+# # Call to render Folium map in Streamlit
+# st_data_cluster = st_folium(
+#     m_cluster, height=500, width=1200, key="m_cluster")
