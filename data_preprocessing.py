@@ -439,8 +439,12 @@ def recommendation_algo(df, unique_ids, use_case, size):
             (df['avg_wait_time_hours'] >= lower_bounds['avg_wait_time_hours']) &
             (df['avg_wait_time_hours'] <= upper_bounds['avg_wait_time_hours'])
         ]
-
-        return filtered_df
+            # Check if the filtered DataFrame is empty
+        if filtered_df.empty:
+            # Return an empty DataFrame with the same columns
+            return pd.DataFrame(columns=filtered_df.columns)
+        else:
+            return filtered_df
 
     def calculate_homogeneous_score(value_dict, smoothing=1):
         values = np.array(list(value_dict.values()), dtype=np.float64)
