@@ -51,10 +51,11 @@ def get_stop_groups(data_frame):
     # Threshold for considering the car stopped, in kilometers (e.g., 0.05 km)
     stop_threshold = 0.05
     # Initialize lists for latitude, longitude, percentage, and ts
-    percent = []
+    # percent = []
     ts = []
     latvalues = []
     longvalues = []
+    ids = []
 
     # Calculate previous longitude and latitude
     data_frame['prev_lon'] = data_frame['longitude'].shift()
@@ -106,21 +107,25 @@ def get_stop_groups(data_frame):
     large_master_df = pd.DataFrame(list_stopped).T
     df_reset = large_master_df.reset_index()
 
-    total_stopped = df_reset[0].sum()
+    # total_stopped = df_reset[0].sum()
 
     # Populate lists with data
     for i in range(len(df_reset)):
         ts.append(df_reset[1][i]['ts'])
         latvalues.append(df_reset[1][i]['latitude'])
         longvalues.append(df_reset[1][i]['longitude'])
-        percent.append(df_reset[0][i]/total_stopped)
+        ids.append(df_reset[1][i]['device_id'])
+
+        # percent.append(df_reset[0][i]/total_stopped)
 
     # Update DataFrame with new columns
     df_reset['latitude'] = latvalues
     df_reset['longitude'] = longvalues
-    df_reset['percent'] = percent
+    # df_reset['percent'] = percent
     df_reset['timestamp'] = ts
-    df_reset['id'] = data_frame['device_id']
+    df_reset['id'] = ids
+
+    df_reset['id'] = df_reset['id'].astype(int)
 
     # Drop the now unnecessary column
     df_with_stops = df_reset.drop(df_reset.columns[2], axis=1)
@@ -439,12 +444,8 @@ def recommendation_algo(df, unique_ids, use_case, size):
             (df['avg_wait_time_hours'] >= lower_bounds['avg_wait_time_hours']) &
             (df['avg_wait_time_hours'] <= upper_bounds['avg_wait_time_hours'])
         ]
-            # Check if the filtered DataFrame is empty
-        if filtered_df.empty:
-            # Return an empty DataFrame with the same columns
-            return pd.DataFrame(columns=filtered_df.columns)
-        else:
-            return filtered_df
+
+        return filtered_df
 
     def calculate_homogeneous_score(value_dict, smoothing=1):
         values = np.array(list(value_dict.values()), dtype=np.float64)
@@ -510,7 +511,7 @@ def create_cluster_map(final_df, fill_colour):
         area = Polygon(boundary_coordinates).area * 10**6
         folium.Polygon(
             locations=boundary_coordinates,
-            color='red',
+            color=fill_colour,
             fill=True,
             fill_color=fill_colour,
             fill_opacity=0.5,

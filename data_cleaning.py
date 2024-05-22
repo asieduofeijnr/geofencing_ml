@@ -6,6 +6,8 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # Define custom functions
+
+
 def split_and_assign_headers(value):
     """
     Split value to extract headers.
@@ -24,7 +26,7 @@ def split_and_assign_headers(value):
 
     # Split the value using colon (:) as a delimiter
     parts = value.split(":")
-    
+
     # Return the first part as the header
     if len(parts) > 1:
         return parts[0].strip()
@@ -50,7 +52,7 @@ def split_and_assign_values(value):
 
     # Split the value using colon (:) as a delimiter
     parts = value.split(":")
-    
+
     # Return the last part as the value
     if len(parts) > 1:
         return parts[-1].strip()
@@ -71,10 +73,11 @@ def rename_duplicate_columns(df):
     cols = pd.Series(df.columns)
 
     # Iterate over duplicated column names
-    for dup in cols[cols.duplicated()].unique(): 
+    for dup in cols[cols.duplicated()].unique():
         # Rename duplicated columns with suffix '_i'
         cols[cols[cols == dup].index.values.tolist()] = \
-            [dup + '_' + str(i) if i != 0 else dup for i in range(sum(cols == dup))]
+            [dup + '_' + str(i) if i !=
+             0 else dup for i in range(sum(cols == dup))]
 
     # Update DataFrame columns with renamed columns
     df.columns = cols
@@ -142,10 +145,57 @@ def clean_data(filename):
     return df
 
 
+# def merge_csv_files(directory):
+#     """
+#     Concatenates CSV files in a directory with the same column length.
+
+#     Parameters:
+#     - directory (str): The directory path containing CSV files.
+
+#     Returns:
+#     - pd.DataFrame: Concatenated DataFrame.
+#     """
+#     # Walk through directories in directory and List all CSV files in the specified directory
+#     # files = []
+#     # for root, _, filenames in os.walk(directory):
+#     #     for filename in filenames:
+#     #         if filename.endswith('.csv'):
+#     #             files.append(os.path.join(root, filename))
+
+#     files = [f for f in os.listdir(directory) if f.endswith('.csv')]
+
+#     # Initialize an empty DataFrame
+#     dfs = pd.DataFrame()
+#     col_len = 0
+
+#     # Iterate through each file
+#     for file in files:
+#         filename = os.path.join(directory, file)
+
+#         # Clean data using a custom function (assuming clean_data is defined)
+#         df = clean_data(filename=filename)
+
+#         # Check the length of columns
+#         if len(dfs) == 0:
+#             col_len = len(df.columns)
+#             print(f"Column Length Set: {col_len}")
+
+#         # Concatenate only if the column lengths match
+#         if len(df.columns) == col_len:
+#             dfs = pd.concat([dfs, df], axis=0)
+#         else:
+#             print(f"Columns not the same for file: {file}")
+#             continue
+
+#     # Drop columns with headers starting with '(None,'
+#     dfs = dfs.loc[:, ~dfs.columns.str.contains('None,')]
+
+#     return dfs
+
 def merge_csv_files(directory):
     """
     Concatenates CSV files in a directory with the same column length.
-    
+
     Parameters:
     - directory (str): The directory path containing CSV files.
 
@@ -155,33 +205,52 @@ def merge_csv_files(directory):
     # List all CSV files in the specified directory
     files = [f for f in os.listdir(directory) if f.endswith('.csv')]
 
-    # Initialize an empty DataFrame
-    dfs = pd.DataFrame()
-    col_len = 0
+    # Initialize an empty list to store DataFrames
+    dfs = []
 
     # Iterate through each file
     for file in files:
         filename = os.path.join(directory, file)
+        print(f"Processing file: {filename}")
 
         # Clean data using a custom function (assuming clean_data is defined)
         df = clean_data(filename=filename)
 
-        # Check the length of columns
-        if len(dfs) == 0:
-            col_len = len(df.columns)
-            print(f"Column Length Set: {col_len}")
+        # Append DataFrame to the list
+        dfs.append(df)
 
-        # Concatenate only if the column lengths match
-        if len(df.columns) == col_len:
-            dfs = pd.concat([dfs, df], axis=0)
-        else:
-            print(f"Columns not the same for file: {file}")
+    # Check if any DataFrames are present
+    if not dfs:
+        return None
+
+    # Find common columns among all DataFrames
+    common_columns = set(dfs[0].columns)
+    print(f"Common Columns Set: {common_columns}")
+    for df in dfs[1:]:
+        common_columns = common_columns.intersection(df.columns)
+
+    # Drop columns not in common_columns for each DataFrame
+    for i in range(len(dfs)):
+        dfs[i] = dfs[i][list(common_columns)]
+
+    # Concatenate DataFrames only if they have the same columns
+    col_len = len(common_columns)
+    print(f"Column Length Set: {col_len}")
+    for i in range(len(dfs)):
+        if len(dfs[i].columns) != col_len:
+            print(f"Columns not the same for file: {files[i]}")
             continue
 
-    # Drop columns with headers starting with '(None,'
-    dfs = dfs.loc[:, ~dfs.columns.str.contains('None,')]
+    # Concatenate DataFrames
+    merged_df = pd.concat(dfs, axis=0)
 
-    return dfs
+    # Drop columns with headers starting with '(None,'
+    merged_df = merged_df.loc[:, ~merged_df.columns.str.contains('None,')]
+
+    merged_df.reset_index(drop=True, inplace=True)
+
+    return merged_df
+
 
 # # How to use the function
 # directory_path = './data/2857419_tracker_location_data/'

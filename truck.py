@@ -13,15 +13,18 @@ class FLEET():
         self.proximity_df = pd.DataFrame()
         self.geofence_df = pd.DataFrame()
 
-    def get_data_frame(self):
+    def get_data_frame(self, n_days=30):
+        self.df['ts'] = pd.to_datetime(self.df['ts'])
+        cutoff_date = self.df['ts'].max() - pd.Timedelta(days=n_days)
         self.fleet_dataframe = self.df[
-            self.df['device_id'].isin(self.truck_id)
+            self.df['device_id'].isin(self.truck_id) & (
+                self.df['ts'] >= cutoff_date)
         ]
         return self
 
-    def get_stops(self, time_threshold=None):
+    def get_stops(self, time_threshold=None, n_days=30):
         if self.fleet_dataframe.empty:
-            self.get_data_frame()
+            self.get_data_frame(n_days=n_days)
         for i in self.truck_id:
             new_stopped_df = data_preprocessing.get_stop_groups(
                 self.fleet_dataframe[
@@ -47,17 +50,17 @@ class FLEET():
         )
         return self
 
-    def getClustersFrequency(self, stop_threshold=0.5, time_threshold=None):
+    def getClustersFrequency(self, stop_threshold=0.5, time_threshold=None, n_days=30):
         if self.fleetstops_dataframe.empty:
-            self.get_stops(time_threshold=time_threshold)
+            self.get_stops(time_threshold=time_threshold, n_days=n_days)
         clusters_df = data_preprocessing.get_clusters_and_frequency(
             self.fleetstops_dataframe, stop_threshold)
         self.clusters = clusters_df
         return self
 
-    def get_proximity_df(self):
+    def get_proximity_df(self, n_days=30):
         if self.clusters.empty:
-            self.getClustersFrequency()
+            self.getClustersFrequency(n_days=n_days)
         self.proximity_df = data_preprocessing.estimate_proximity_and_closest_cluster(
             self.clusters)
         return self
@@ -86,5 +89,3 @@ class FLEET():
 
     def create_clusters(self):
         pass
-
-
