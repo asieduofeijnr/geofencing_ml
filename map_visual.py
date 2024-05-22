@@ -18,15 +18,16 @@ from truck import *
 
 def load_data():
     if 'df_fleet' not in st.session_state:
-        dfs = os.path.expanduser("~/data/geofence_data/merged_csv.pickle")
-        st.session_state.df_fleet = pd.read_pickle(dfs)
+        dfs = os.path.expanduser(
+            "/Users/solomon/My Drive/MSDS USF/Practicum TruckX/geo_fencing/geofencing_ml/original.csv")
+        st.session_state.df_fleet = pd.read_csv(dfs)
 
 
-def load_data_cluster():
-    if 'df_fleet_cluster' not in st.session_state:
-        dfs_cluster = os.path.expanduser(
-            "~/data/geofence_data/fleet_dataframe.pickle")
-        st.session_state.df_fleet_cluster = pd.read_pickle(dfs_cluster)
+# def load_data_cluster():
+#     if 'df_fleet_cluster' not in st.session_state:
+#         dfs_cluster = os.path.expanduser(
+#             "~/data/geofence_data/fleet_dataframe.pickle")
+#         st.session_state.df_fleet_cluster = pd.read_pickle(dfs_cluster)
 
 ######################################
 
@@ -73,7 +74,7 @@ st.markdown("""
 
 # Read Pickle for truck data
 load_data()
-load_data_cluster()
+# load_data_cluster()
 
 # Extracting unique device IDs and mapping them to truck IDs
 device_ids = st.session_state.df_fleet.device_id.unique()
@@ -93,6 +94,17 @@ selected_truck_ids = []
 if options:
     selected_truck_ids = [int(truck_ids[option]) for option in options]
 
+
+colh, cold = st.columns(2)
+
+with colh:
+    hours = st.number_input(
+        'Hours (Time Parked)', min_value=1, value=1, key='hours')
+with cold:
+    days = st.number_input(
+        'Days (for dataset)', min_value=1, value=90, key='days')
+
+
 if selected_truck_ids:
     colors = cycle(['blue', 'green', 'red', 'purple', 'orange', 'darkred', 'lightred', 'beige', 'darkblue', 'darkgreen', 'cadetblue',
                     'darkpurple', 'white', 'pink', 'lightblue', 'lightgreen', 'gray', 'black', 'lightgray'])  # Cycle through this list for different trucks
@@ -101,8 +113,10 @@ if selected_truck_ids:
 
     for truck_id in selected_truck_ids:
         truck_data = FLEET(
-            [truck_id],  st.session_state.df_fleet).get_data_frame()
-        df = truck_data.get_stops().fleetstops_dataframe
+            [truck_id],  st.session_state.df_fleet).get_data_frame(n_days=days)
+
+        df = truck_data.get_stops(
+            time_threshold=pd.Timedelta(hours=hours)).fleetstops_dataframe
 
         if first_truck:  # Initialize the map with the first truck's location
             start_latitude = df.iloc[0]['latitude']
@@ -129,7 +143,6 @@ if selected_truck_ids:
     # Call to render Folium map in Streamlit
     st_data = st_folium(m, height=500, width=1200)
 
-
 # Improving the instructions and overview for better readability and aesthetics
 st.markdown("""
     <div style="background-color: #f0f2f6; padding: 10px; border-radius: 10px;">
@@ -141,23 +154,21 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-col1, col2 = st.columns(2)
 
-with col1:
-    stop_threshold = st.number_input(
-        'Insert a number for stop threshold', min_value=0.2, value=0.2, key="stop_threshold")
-with col2:
-    hours = st.number_input(
-        'Insert a number for hours', min_value=1, value=1, key='hours')
+stop_threshold = st.number_input(
+    'Insert a number for stop threshold', min_value=0.2, value=0.2, key="stop_threshold")
 
 
 if selected_truck_ids:
     # Get data for the selected truck
-    # truck_data = FLEET(selected_truck_ids, st.session_state.df_fleet).get_data_frame().get_stops().getClustersFrequency(
-    #     stop_threshold=stop_threshold, time_threshold=pd.Timedelta(hours=hours))
-    # df = truck_data.clusters
+    cluster_truck_data = FLEET(selected_truck_ids, st.session_state.df_fleet).get_data_frame(n_days=days).get_stops(time_threshold=pd.Timedelta(hours=hours)).getClustersFrequency(
+        stop_threshold=stop_threshold).get_proximity_df()
 
-    df = st.session_state.df_fleet_cluster
+    df = cluster_truck_data.clusters
+
+# ------>DO NOT NEED<-------
+    # df = st.session_state.df_fleet_cluster
+# ------>DO NOT NEED<-------
 
     # Initialize the map with the truck's first location
     start_latitude = float(df.iloc[0]['cluster_centroid'][0])
@@ -187,9 +198,6 @@ if selected_truck_ids:
 
 ######################################
 
-# row1, row2, row3 = st.columns([1, 4, 1])
-
-# with row2:
 
 st.markdown("""
     <div style="background-color: #f0f2f6; padding: 10px; border-radius: 10px;">
@@ -222,74 +230,14 @@ use_case_to_color = {
 }
 
 case_color = use_case_to_color[use_case]
-unique_ids = 3
+unique_ids = 32
+
+proximity_df = cluster_truck_data.proximity_df
 
 
 st.session_state.final_df = recommendation_algo(
-    df, unique_ids, size='small', use_case=use_case)
+    proximity_df, unique_ids, size='small', use_case=use_case)
 
 map_object = create_cluster_map(st.session_state.final_df, case_color)
 st.components.v1.html(folium.Map._repr_html_(
     map_object), height=500, width=1200)
-
-#####################################
-
-# start_latitude = float(
-#     st.session_state.final_df.iloc[0]['cluster_centroid'][0])
-# start_longitude = float(
-#     st.session_state.final_df.iloc[0]['cluster_centroid'][1])
-# m_cluster = folium.Map(
-#     location=[start_latitude, start_longitude], zoom_start=5)
-
-
-# for i in st.session_state.final_df.Points:
-#     # Find the minimum and maximum latitude and longitude values
-#     min_lat = min(coord[0] for coord in i)
-#     max_lat = max(coord[0] for coord in i)
-#     min_lon = min(coord[1] for coord in i)
-#     max_lon = max(coord[1] for coord in i)
-
-#     boundary_coordinates = [
-#         (min_lat, min_lon),
-#         (min_lat, max_lon),
-#         (max_lat, max_lon),
-#         (max_lat, min_lon),
-#         (min_lat, min_lon)
-#     ]
-#     # Create a polygon to highlight the cluster
-#     area = Polygon(boundary_coordinates).area * 10**6
-
-#     folium.Polygon(locations=boundary_coordinates, color='red', fill=True,
-#                    fill_color='red', fill_opacity=0.5, weight=0.2,
-#                    popup=folium.Popup(f'Area: {area:2f} sq.km', parse_html=True)).add_to(m_cluster)
-
-#     for coord in i:
-#         folium.CircleMarker(location=coord, radius=2, color='blue',
-#                             fill=True, fill_color='blue').add_to(m_cluster)
-
-# # Adding points for the truck's route
-# for _, row in st.session_state.final_df.iterrows():
-#     folium.CircleMarker(
-#         location=[row['cluster_centroid']
-#                   [0], row['cluster_centroid'][1]],
-#         radius=10,
-#         color="purple",
-#         popup=f'''Cluster: {row['clusters']} <br>
-#                   No Trucks: {len(row['num_trucks_stops'])} <br>
-#                   Total wait time : {row['total_wait_time']} <br>
-#                   Homogenous Score : {row['homogeneous']} <br>
-#                   Average wait time : {row['avg_wait_time']} <br>
-#                   Frequency of Stops: {row['Frequency_of_stops']} <br>
-#                   Truck Stops: {row['num_trucks_stops']}''',
-#         fill=True,
-#         fill_color=case_color,
-#         fill_opacity=0.6
-#     ).add_to(m_cluster)
-
-# # Optionally, add lines to connect the points and show the route
-# # if df.shape[0] > 1:  # Check if there are at least two points to connect
-# #     folium.PolyLine(df['cluster_centroid'].tolist(), color=truck_color).add_to(m)
-
-# # Call to render Folium map in Streamlit
-# st_data_cluster = st_folium(
-#     m_cluster, height=500, width=1200, key="m_cluster")
