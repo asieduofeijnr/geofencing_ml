@@ -145,53 +145,6 @@ def clean_data(filename):
     return df
 
 
-# def merge_csv_files(directory):
-#     """
-#     Concatenates CSV files in a directory with the same column length.
-
-#     Parameters:
-#     - directory (str): The directory path containing CSV files.
-
-#     Returns:
-#     - pd.DataFrame: Concatenated DataFrame.
-#     """
-#     # Walk through directories in directory and List all CSV files in the specified directory
-#     # files = []
-#     # for root, _, filenames in os.walk(directory):
-#     #     for filename in filenames:
-#     #         if filename.endswith('.csv'):
-#     #             files.append(os.path.join(root, filename))
-
-#     files = [f for f in os.listdir(directory) if f.endswith('.csv')]
-
-#     # Initialize an empty DataFrame
-#     dfs = pd.DataFrame()
-#     col_len = 0
-
-#     # Iterate through each file
-#     for file in files:
-#         filename = os.path.join(directory, file)
-
-#         # Clean data using a custom function (assuming clean_data is defined)
-#         df = clean_data(filename=filename)
-
-#         # Check the length of columns
-#         if len(dfs) == 0:
-#             col_len = len(df.columns)
-#             print(f"Column Length Set: {col_len}")
-
-#         # Concatenate only if the column lengths match
-#         if len(df.columns) == col_len:
-#             dfs = pd.concat([dfs, df], axis=0)
-#         else:
-#             print(f"Columns not the same for file: {file}")
-#             continue
-
-#     # Drop columns with headers starting with '(None,'
-#     dfs = dfs.loc[:, ~dfs.columns.str.contains('None,')]
-
-#     return dfs
-
 def merge_csv_files(directory):
     """
     Concatenates CSV files in a directory with the same column length.
@@ -250,10 +203,3 @@ def merge_csv_files(directory):
     merged_df.reset_index(drop=True, inplace=True)
 
     return merged_df
-
-
-# # How to use the function
-# directory_path = './data/2857419_tracker_location_data/'
-# merged_files = merge_csv_files(directory_path)
-# # # merged_files.to_csv('./data/merged_files.csv', index=False)
-# print(merged_files.head())

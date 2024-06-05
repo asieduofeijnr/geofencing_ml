@@ -167,50 +167,42 @@ def count_truck_occurrences(coordinates, waiting_time):
 
 def get_clusters_and_frequency(dataframe, stop_threshold=0.5):
     """
-    Identify clusters of stops and calculate their frequency and total waiting time.
+    Calculate cluster frequency of get stop groups \
+        the index of the closest cluster for each cluster.
 
     Parameters:
-    - dataframe (DataFrame): DataFrame containing stop data
-    - stop_threshold (float): Distance threshold to consider stops as part of the same cluster
+    - dataframe (DataFrame): DataFrame containing get stop groups
 
     Returns:
-    - DataFrame: DataFrame containing clusters of stops, their frequencies, and total waiting time
+    - DataFrame: DataFrame with new columns \
+        'clusters' and 'frequency_of_clusters'
     """
-    # Use a dictionary to store unique cluster centroids and their corresponding waiting times
-
+    # Convert DataFrame to NumPy array for computation
+    data = dataframe[['latitude', 'longitude', 'id',
+                      'waiting_time', 'timestamp']].to_numpy()
     cluster_details = {}
     visited = []
-
-    # Iterate over each row in the DataFrame
-    for index, row_0 in dataframe.iterrows():
-        for row in range(len(dataframe)):
-            id = (dataframe.iloc[row]['latitude'],
-                  dataframe.iloc[row]['longitude'])
+    # Compute using NumPy
+    for index in range(len(data)):
+        row_0 = data[index]
+        for row_index in range(len(data)):
+            id = (data[row_index, 0], data[row_index, 1])
             if id not in visited:
                 distance = haversine(
-                    row_0['longitude'],
-                    row_0['latitude'],
-                    dataframe.iloc[row]['longitude'],
-                    dataframe.iloc[row]['latitude'])
-                # Check if the distance is below the threshold
+                    row_0[1], row_0[0], data[row_index, 1], data[row_index, 0])
                 if distance < stop_threshold:
-                    lat = dataframe.iloc[row]['latitude']
-                    lon = dataframe.iloc[row]['longitude']
-                    # Assuming 'id' column has truck IDs
-                    truck_id = dataframe.iloc[row]['id']
-                    time_stopped = dataframe.iloc[row]['waiting_time']
-                    timestamp = dataframe.iloc[row]['timestamp']
-
-                    # Key for the cluster based on the first point that forms the cluster
-                    cluster_key = (
-                        index, row_0['latitude'], row_0['longitude'])
-
+                    lat = data[row_index, 0]
+                    lon = data[row_index, 1]
+                    truck_id = data[row_index, 2]
+                    time_stopped = data[row_index, 3]
+                    timestamp = data[row_index, 4]
+                    cluster_key = (index, row_0[0], row_0[1])
                     if cluster_key not in cluster_details:
                         cluster_details[cluster_key] = {
                             'coords': [(lat, lon, truck_id)],
                             'waiting_time': [time_stopped],
                             'arrival_time': [timestamp],
-                            'departure_time': [timestamp+time_stopped],
+                            'departure_time': [timestamp + time_stopped],
                             'total_wait_time': time_stopped
                         }
                     else:
@@ -222,11 +214,9 @@ def get_clusters_and_frequency(dataframe, stop_threshold=0.5):
                         cluster_details[cluster_key]['arrival_time'].append(
                             timestamp)
                         cluster_details[cluster_key]['departure_time'].append(
-                            timestamp+time_stopped)
-
+                            timestamp + time_stopped)
                     visited.append(id)
-
-    # Process the cluster details
+    # Construct final DataFrame
     cluster_data = []
     for key, details in cluster_details.items():
         mean_lat = np.mean([lat for lat, _, _ in details['coords']])
@@ -248,27 +238,20 @@ def get_clusters_and_frequency(dataframe, stop_threshold=0.5):
             'avg_wait_time': np.mean([num_trucks[1][i]/num_trucks[0][i] for i in num_trucks[0]]),
             'Frequency_of_stops': total_stops
         })
-
-    # Create a DataFrame from the cluster data
-    df = pd.DataFrame(cluster_data)
-
-    # Create a tuple of mean latitude and longitude as a cluster centroid identifier
-    df['cluster_centroid'] = list(
-        zip(df['mean_latitude'], df['mean_longitude']))
-
+    result_df = pd.DataFrame(cluster_data)
+    result_df['cluster_centroid'] = list(
+        zip(result_df['mean_latitude'], result_df['mean_longitude']))
     # Assign cluster labels to each cluster centroid
     cluster_labels = {tuple(row): f'Cluster {i + 1}' for i, row in enumerate(
-        df[['mean_latitude', 'mean_longitude']].drop_duplicates().itertuples(index=False))}
-    df['clusters'] = df[['mean_latitude', 'mean_longitude']].apply(
+        result_df[['mean_latitude', 'mean_longitude']].drop_duplicates().itertuples(index=False))}
+    result_df['clusters'] = result_df[['mean_latitude', 'mean_longitude']].apply(
         tuple, axis=1).map(cluster_labels)
-
     # Get location of coordinates
     # df['location_address'] = df['cluster_centroid'].apply(get_location)
     # Drop duplicate cluster_centroids
-    df = df.drop_duplicates(subset='cluster_centroid')
-    df = df.drop(columns=['mean_latitude', 'mean_longitude'])
-
-    return df
+    result_df = result_df.drop_duplicates(subset='cluster_centroid')
+    result_df = result_df.drop(columns=['mean_latitude', 'mean_longitude'])
+    return result_df
 
 
 def estimate_proximity_and_closest_cluster(dataframe):
@@ -547,12 +530,5 @@ def create_cluster_map(final_df, fill_colour):
             fill_opacity=0.6
         ).add_to(m_cluster)
 
-    # Optionally, add lines to connect the points and show the route
-    # if final_df.shape[0] > 1:
-    #     folium.PolyLine(final_df['cluster_centroid'].tolist(), color='truck_color').add_to(m_cluster)
-
     # Return the map object
     return m_cluster
-
-# Example usage:
-# st_data_cluster = st_folium(create_cluster_map(final_df, 'red'), height=500, width=1200, key="m_cluster")

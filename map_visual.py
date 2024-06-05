@@ -19,7 +19,7 @@ from truck import *
 def load_data():
     if 'df_fleet' not in st.session_state:
         dfs = os.path.expanduser(
-            "/Users/solomon/My Drive/MSDS USF/Practicum TruckX/geo_fencing/geofencing_ml/original.csv")
+            "original.csv")
         st.session_state.df_fleet = pd.read_csv(dfs)
 
 
@@ -44,7 +44,7 @@ col1, col2 = st.columns([1, 3])
 
 with col1:
     # Using markdown with HTML to center the image within the column
-    st.image("images/truckx.png", width=200)
+    st.image("truckx.png", width=200)
 
 with col2:
     # Using markdown with HTML to center the title within the column
@@ -77,13 +77,14 @@ load_data()
 # load_data_cluster()
 
 # Extracting unique device IDs and mapping them to truck IDs
+
 device_ids = st.session_state.df_fleet.device_id.unique()
-truck_ids = {f"Truck_{count + 1}": id for count,
-             id in enumerate(device_ids)}
+truck_ids = {f"Truck_{count + 1}": id for count, id in enumerate(device_ids)}
+truck_ids["All Trucks"] = "all"
 
 options = st.multiselect(
     label="Select Truck(s) to Visualize:",
-    options=truck_ids.keys(),
+    options=list(truck_ids.keys()),  # Convert keys to a list
     placeholder="Select Truck(s)",
     key="truck_stops",
     help="Choose one or more trucks to display their routes."
@@ -91,8 +92,12 @@ options = st.multiselect(
 
 selected_truck_ids = []
 
-if options:
-    selected_truck_ids = [int(truck_ids[option]) for option in options]
+if "All Trucks" in options:
+    # Select all device IDs if "All Trucks" is selected
+    selected_truck_ids = device_ids.tolist()
+else:
+    selected_truck_ids = [int(truck_ids[option])
+                          for option in options if option != "All Trucks"]
 
 
 colh, cold = st.columns(2)
