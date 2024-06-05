@@ -23,12 +23,6 @@ def load_data():
         st.session_state.df_fleet = pd.read_csv(dfs)
 
 
-# def load_data_cluster():
-#     if 'df_fleet_cluster' not in st.session_state:
-#         dfs_cluster = os.path.expanduser(
-#             "~/data/geofence_data/fleet_dataframe.pickle")
-#         st.session_state.df_fleet_cluster = pd.read_pickle(dfs_cluster)
-
 ######################################
 
 
@@ -153,15 +147,14 @@ st.markdown("""
     <div style="background-color: #f0f2f6; padding: 10px; border-radius: 10px;">
         <h4>Visualize Truck Clusters:</h4>
         <ol>
-            <li>Select Truck(s) stop threshold (the minimum distance from another truck).</li>
-            <li>Select Truck(s) hours stopped (the minimum hours a truck has stopped for)</li>
+            <li>Insert Truck(s) minimum distance threshold in meters (the minimum distance from another truck).</li>
         </ol>
     </div>
 """, unsafe_allow_html=True)
 
 
 stop_threshold = st.number_input(
-    'Insert a number for stop threshold', min_value=0.2, value=0.2, key="stop_threshold")
+    'Insert a number for minimum distance threshold', min_value=0.2, value=0.2, key="stop_threshold")
 
 
 if selected_truck_ids:
@@ -206,11 +199,7 @@ if selected_truck_ids:
 
 st.markdown("""
     <div style="background-color: #f0f2f6; padding: 10px; border-radius: 10px;">
-        <h4>Visualize Interesting Truck Clusters based of parameters:</h4>
-        <ol>
-            <li>Select Truck(s) homogenous state (the minimum distance from another truck).</li>
-            <li>Select Truck(s) hours stopped (the minimum hours a truck has stopped for)</li>
-        </ol>
+        <h4>Visualize recommended Truck Clusters based of parameters:</h4>
     </div>
 """, unsafe_allow_html=True)
 
@@ -224,25 +213,27 @@ st.write('----')
 st.sidebar.title('Map Use Case Selector')
 # Setting 'reset' as the default value directly in the radio widget
 use_case = st.sidebar.radio(
-    "Select Use Case:", ['Optimization', 'Tracking', 'Safety', 'Reset'], index=3)
+    "Select Use Case:", ['Optimization', 'Tracking', 'Safety'], index=1)
 
 # Mapping use cases to colors
 use_case_to_color = {
     'Optimization': 'red',
     'Tracking': 'blue',
-    'Safety': 'green',
-    'Reset': 'purple'
+    'Safety': 'green'
 }
 
-case_color = use_case_to_color[use_case]
-unique_ids = 32
+try:
+    case_color = use_case_to_color[use_case]
+    unique_ids = 32
 
-proximity_df = cluster_truck_data.proximity_df
+    proximity_df = cluster_truck_data.proximity_df
 
+    st.session_state.final_df = recommendation_algo(
+        proximity_df, unique_ids, size='small', use_case=use_case)
 
-st.session_state.final_df = recommendation_algo(
-    proximity_df, unique_ids, size='small', use_case=use_case)
-
-map_object = create_cluster_map(st.session_state.final_df, case_color)
-st.components.v1.html(folium.Map._repr_html_(
-    map_object), height=500, width=1200)
+    map_object = create_cluster_map(st.session_state.final_df, case_color)
+    st.components.v1.html(folium.Map._repr_html_(
+        map_object), height=500, width=1200)
+except IndexError as e:
+    st.error(
+        "Filter does not match any data. Please adjust the filter and try again.")
